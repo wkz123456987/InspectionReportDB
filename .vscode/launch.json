@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "/root/src/delve_test/main.go"
+            "program": "${workspaceFolder}/main.go"
         },
         {
             // 调试配置的名称，用作vscode中区分
