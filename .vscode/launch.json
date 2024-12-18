@@ -1,0 +1,33 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Package",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "/root/src/delve_test/main.go"
+        },
+        {
+            // 调试配置的名称，用作vscode中区分
+            "name": "remotedebug",
+            // 调试类型，go语言当然选择go
+            "type": "go",
+            // 调试请求类型，可以选择launch启动调试和attach附加调试
+            "request": "launch",
+            // 调试模式，这里选择远程调试
+            "mode": "remote",
+            // 必填项，远程调试里好像没什么用处
+            "program": "${fileDirname}",
+            // 远程连接的端口号
+            "port": 2345,
+            // 远程主机的ip地址
+            "host": "192.168.6.1",
+            // 被调试的代码在远程主机上的路径，必须使用绝对路径.且具体到指定调试目录
+            "remotePath": "/root/src/delve_test",
+        }
+    ]
+}
