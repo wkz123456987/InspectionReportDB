@@ -10,6 +10,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// GetTablespaceUsage函数用于获取表空间使用情况信息，并以表格形式展示，同时输出相关建议。
 func GetTablespaceUsage() {
 	// 标记是否获取到有效数据，初始化为false
 	hasData := false

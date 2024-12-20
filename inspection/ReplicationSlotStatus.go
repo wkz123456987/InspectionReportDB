@@ -3,43 +3,16 @@ package inspection
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
-	"regexp"
-	"strings"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// ReplicationSlotStatus 函数用于检查复制槽状态情况，并以表格形式打印相关信息。
+// ReplicationSlotStatus函数用于检查复制槽状态情况，并以表格形式打印相关信息，同时输出相关建议。
 func ReplicationSlotStatus() {
-	// 标记是否获取到有效数据，初始化为false
-	hasData := false
 
-	// 构建psql命令以获取复制槽状态信息
-	cmd := exec.Command("psql", "--pset=pager=off", "-t", "--pset=border=2", "-q", "-c", `select slot_name,slot_type,active from pg_replication_slots order by 3`)
-	var result bytes.Buffer
-	cmd.Stdout = &result
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command: %s\n", err)
-		return
-	}
-
-	// 解析结果判断是否有有效数据
-	lines := strings.Split(strings.TrimSpace(result.String()), "\n")
-	for _, line := range lines {
-		// 使用正则表达式提取每行的数据（可根据实际数据格式调整正则表达式）
-		re := regexp.MustCompile(`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|`)
-		matches := re.FindStringSubmatch(line)
-
-		if len(matches) == 4 { // 第一个匹配项是完整的匹配项，后面是列的数据
-			hasData = true
-			break
-		}
-	}
-
-	// 根据是否有数据决定输出内容
-	if hasData {
+	// 获取复制槽状态信息
+	result := ConnectPostgreSQL("[QUERY_REPLICATION_SLOT_STATUS_INFO]")
+	if len(result) > 0 {
 		fmt.Println("###  复制槽状态:")
 
 		buffer := &bytes.Buffer{}
@@ -47,19 +20,8 @@ func ReplicationSlotStatus() {
 		writer.SetAutoFormatHeaders(true)
 		writer.SetHeader([]string{"复制槽名称", "复制槽类型", "复制槽状态"})
 
-		// 重新解析结果并添加数据到表格
-		lines = strings.Split(strings.TrimSpace(result.String()), "\n")
-		for _, line := range lines {
-			re := regexp.MustCompile(`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|`)
-			matches := re.FindStringSubmatch(line)
-
-			if len(matches) == 4 {
-				writer.Append([]string{
-					strings.TrimSpace(matches[1]),
-					strings.TrimSpace(matches[2]),
-					strings.TrimSpace(matches[3]),
-				})
-			}
+		for _, row := range result {
+			writer.Append(row)
 		}
 
 		writer.Render()
