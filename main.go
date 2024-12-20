@@ -23,68 +23,25 @@ func main() {
 	fmt.Println(art)
 	//os_detection()        //调用操作系统巡检
 	//database_inspection() //调用数据库巡检
-	database_routine_inspection()
+	//database_routine_inspection() //调用数据库常规巡检
 	test()
 }
 
-//test
-
 func test() {
-	// fmt.Println("###  总剩余连接数:")
-	// routineinspect.CheckDBConnections()
-	// fmt.Println("###  数据库版本:")
-	// routineinspect.GetDBVersion()
-	// fmt.Println("###  数据库插件版本:")
-	// routineinspect.GetInstalledPluginVersions()
-	// fmt.Println("###  用户使用了多少种数据类型:")
-	// routineinspect.GetUsedDataTypeCounts()
-	// fmt.Println("###  用户创建了多少对象:	")
-	// routineinspect.GetCreatedObjectCounts()
-	// fmt.Println("###  用户对象占用空间的柱状图:")
-	// routineinspect.GetUserObjectSpaceInfo()
-	// fmt.Println("###  表空间使用情况:")
-	// routineinspect.GetTablespaceUsage()
-	// fmt.Println("###  数据库使用情况:")
-	// routineinspect.GetDatabaseUsage()
-	// fmt.Println("###  用户连接数限制:")
-	// routineinspect.GetUserConnectionLimits()
-	// fmt.Println("###  数据库连接数限制:")
-	// routineinspect.GetDatabaseConnectionLimits()
-	// fmt.Println("###  数据库检查点和bgwriter统计信息:")
-	// routineinspect.GetCheckpointBgwriterStats()
-	fmt.Println("###  长事务和2PC相关信息:")
-	routineinspect.GetLongTransactionAnd2PCInfo()
-	fmt.Println("###  数据库的用户密码到期时间:")
-	routineinspect.GetUserPasswordExpiration()
-	fmt.Println("###  继承关系检查:")
-	routineinspect.GetInheritanceRelationCheck()
-	fmt.Println("###  是否开启归档, 自动垃圾回收:")
-	routineinspect.GetArchiveAndAutoVacuumSettings()
-	fmt.Println("###  数据库主备角色:")
-	routineinspect.GetMasterStandbyRole()
-	fmt.Println("###  备库信息:")
-	routineinspect.GetStandbyInfo()
-}
-
-// 数据库常规巡检
-func database_routine_inspection() {
-	fmt.Println("###  当前活跃度:")
-	routineinspect.GetCurrentActivityStatus()
-	fmt.Println("###  总剩余连接数:")
-	//routineinspect.TotalRemainingConnections()
-
+	//detection.FileSystemUsageCheck()
+	//detection.CPUUsageCheck()
+	//detection.MemoryUsageCheck()
+	detection.DiskIOCheck()
+	//detection.FileSystemInodeUsageCheck()
 }
 
 // 操作系统巡检
 func os_detection() {
-	detection.PrintCPUUsage()
-	detection.PrintMemoryUsage()
-	detection.PrintDiskUsage()
+
 }
 
 // 数据库巡检
 func database_inspection() {
-	fmt.Println()
 	fmt.Println("###  TOP 10 size对象:")
 	inspection.DatabasesTop10()
 	fmt.Println("###  查找索引数超过4并且SIZE大于10MB的表")
@@ -111,6 +68,45 @@ func database_inspection() {
 	fmt.Println("###  复制槽状态:")
 	inspection.ReplicationSlotStatus()
 	fmt.Println("###  schema统计:")
-	inspection.SchemaStats()
+	inspection.GetSchemaStats()
+}
 
+// 数据库常规巡检
+func database_routine_inspection() {
+	fmt.Println("###  当前活跃度:")
+	routineinspect.GetCurrentActivityStatus()
+	fmt.Println("###  总剩余连接数:")
+	routineinspect.CheckDBConnections()
+	fmt.Println("###  数据库版本:")
+	routineinspect.GetDBVersion()
+	fmt.Println("###  数据库插件版本:")
+	routineinspect.GetInstalledPluginVersions()
+	fmt.Println("###  用户使用了多少种数据类型:")
+	routineinspect.GetUsedDataTypeCounts()
+	fmt.Println("###  用户创建了多少对象:	")
+	routineinspect.GetCreatedObjectCounts()
+	fmt.Println("###  用户对象占用空间的柱状图:")
+	routineinspect.GetUserObjectSpaceInfo()
+	fmt.Println("###  表空间使用情况:")
+	routineinspect.GetTablespaceUsage()
+	fmt.Println("###  数据库使用情况:")
+	routineinspect.GetDatabaseUsage()
+	fmt.Println("###  用户连接数限制:")
+	routineinspect.GetUserConnectionLimits()
+	fmt.Println("###  数据库连接数限制:")
+	routineinspect.GetDatabaseConnectionLimits()
+	fmt.Println("###  数据库检查点和bgwriter统计信息:")
+	routineinspect.GetCheckpointBgwriterStats()
+	fmt.Println("###  长事务和2PC相关信息:")
+	routineinspect.GetLongTransactionAnd2PCInfo()
+	fmt.Println("###  数据库的用户密码到期时间:")
+	routineinspect.GetUserPasswordExpiration()
+	fmt.Println("###  继承关系检查:")
+	routineinspect.GetInheritanceRelationCheck()
+	fmt.Println("###  是否开启归档, 自动垃圾回收:")
+	routineinspect.GetArchiveAndAutoVacuumSettings()
+	fmt.Println("###  数据库主备角色:")
+	routineinspect.GetMasterStandbyRole()
+	fmt.Println("###  备库信息:")
+	routineinspect.GetStandbyInfo()
 }
