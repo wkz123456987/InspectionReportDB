@@ -19,25 +19,25 @@ func main() {
 		`
 	// 清屏（仅适用于Unix-like操作系统）
 	//fmt.Print("\033[H\033[2J")
-	fmt.Println("开始监控系统资源使用情况...")
+	fmt.Println("开始巡检系统资源使用情况...")
 	fmt.Println(art)
-	//os_detection()        //调用操作系统巡检
-	//database_inspection() //调用数据库巡检
-	//database_routine_inspection() //调用数据库常规巡检
+	os_detection()                //调用操作系统巡检
+	database_inspection()         //调用数据库巡检
+	database_routine_inspection() //调用数据库常规巡检
 	test()
 }
 
 func test() {
-	//detection.FileSystemUsageCheck()
-	//detection.CPUUsageCheck()
-	//detection.MemoryUsageCheck()
-	detection.DiskIOCheck()
-	//detection.FileSystemInodeUsageCheck()
+
 }
 
 // 操作系统巡检
 func os_detection() {
-
+	detection.FileSystemUsageCheck()
+	detection.CPUUsageCheck()
+	detection.MemoryUsageCheck()
+	detection.DiskIOCheck()
+	detection.FileSystemInodeUsageCheck()
 }
 
 // 数据库巡检

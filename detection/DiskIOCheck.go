@@ -3,72 +3,91 @@ package detection
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
+	"log"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"gopkg.in/ini.v1"
 )
 
-// DiskIOCheck 获取磁盘IO情况并展示
 func DiskIOCheck() {
-	// 执行iostat -mx 1 1命令获取磁盘设备名相关信息
-	firstCmd := exec.Command("iostat", "-mx", "1", "1")
-	var firstResult bytes.Buffer
-	firstCmd.Stdout = &firstResult
-	err := firstCmd.Run()
+	cfg, err := ini.Load("database_config.ini")
+	section := cfg.Section("Linux")
+	user := section.Key("User").String()
+	password := section.Key("Password").String()
+	port, err := section.Key("Port").Int()
 	if err != nil {
-		fmt.Printf("Failed to execute first command: %s\n", err)
+		log.Fatalf("无法转换端口号: %v", err)
+	}
+	host := section.Key("Host").String()
+
+	sshConf := SSHConfig{
+		User:     user,
+		Password: password,
+		Host:     host,
+		Port:     port,
+	}
+	RemoteDiskIOCheck(sshConf)
+}
+
+// RemoteDiskIOCheck 获取远程磁盘IO情况并展示
+func RemoteDiskIOCheck(sshConf SSHConfig) {
+	firstResult, err := ExecuteRemoteCommand(sshConf, "iostat -mx 1 1")
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
+	diskDevices := parseDiskDevices(firstResult)
+	if len(diskDevices) > 0 {
+		fmt.Println("### 远程输出磁盘IO情况:")
+		for _, disk := range diskDevices {
+			ioResult, err := ExecuteRemoteCommand(sshConf, fmt.Sprintf("iostat -mx 1 2 %s", disk))
+			if err != nil {
+				fmt.Printf("Failed to execute command for disk %s: %s\n", disk, err)
+				continue
+			}
+			parseAndAppendIOResult(ioResult, disk)
+		}
+	} else {
+		fmt.Println("未查询到远程磁盘IO情况相关信息")
+	}
 
-	// 解析第一步命令结果，获取磁盘设备名列表（简单提取包含特定关键字的行的第一个字段作为设备名）
+	fmt.Println("建议: ")
+	fmt.Println("   > 注意检查IO占用高的原因.")
+}
+
+func parseDiskDevices(result string) []string {
 	var diskDevices []string
-	lines := strings.Split(strings.TrimSpace(firstResult.String()), "\n")
+	lines := strings.Split(strings.TrimSpace(result), "\n")
 	for _, line := range lines {
 		fields := strings.Fields(line)
 		if len(fields) >= 1 && (strings.Contains(line, "sd") || strings.Contains(line, "vd") || strings.Contains(line, "dm")) {
 			diskDevices = append(diskDevices, fields[0])
 		}
 	}
+	return diskDevices
+}
 
-	if len(diskDevices) > 0 {
-		fmt.Println("### 输出磁盘IO情况:")
+func parseAndAppendIOResult(result string, disk string) {
+	ioLines := strings.Split(strings.TrimSpace(result), "\n")
+	buffer := &bytes.Buffer{}
+	writer := tablewriter.NewWriter(buffer)
+	writer.SetAutoFormatHeaders(false)
+	writer.SetHeader([]string{"设备名", "磁盘IO：%util"})
+	writer.SetAlignment(tablewriter.ALIGN_LEFT)
 
-		buffer := &bytes.Buffer{}
-		writer := tablewriter.NewWriter(buffer)
-		writer.SetAutoFormatHeaders(false)
-		writer.SetHeader([]string{"磁盘IO：%util"})
-		writer.SetAlignment(tablewriter.ALIGN_LEFT)
-
-		// 遍历每个磁盘设备名，执行相应命令获取并处理磁盘IO数据
-		for _, disk := range diskDevices {
-			// 构建并执行iostat -mx 1 2 [磁盘设备名]命令获取磁盘IO信息
-			cmd := exec.Command("iostat", "-mx", "1", "2", disk)
-			var result bytes.Buffer
-			cmd.Stdout = &result
-			err := cmd.Run()
-			if err != nil {
-				fmt.Printf("Failed to execute command for disk %s: %s\n", disk, err)
-				continue
-			}
-
-			// 解析磁盘IO命令结果，提取%util字段数据
-			ioLines := strings.Split(strings.TrimSpace(result.String()), "\n")
-			for _, ioLine := range ioLines {
-				fields := strings.Fields(ioLine)
-				if len(fields) >= 14 {
-					ioUtil := fields[13]
-					writer.Append([]string{ioUtil}) // 将%util值添加到表格中
+	for index, ioLine := range ioLines {
+		fields := strings.Fields(ioLine)
+		if len(fields) >= 14 {
+			ioUtil := fields[13]
+			if index > 0 { // 跳过表头行，只处理数据行
+				ioUtil = strings.TrimSpace(strings.TrimPrefix(ioUtil, "%util"))
+				if ioUtil != "" {
+					writer.Append([]string{disk, ioUtil}) // 将设备名和处理后的%util值添加到表格中
 				}
 			}
 		}
-
-		writer.Render() // 确保表头和数据行被正确渲染
-		fmt.Println(buffer.String())
-	} else {
-		fmt.Println("未查询到磁盘IO情况相关信息")
 	}
-
-	fmt.Println("建议: ")
-	fmt.Println("   > 注意检查IO占用高的原因.")
+	writer.Render()
+	fmt.Println(buffer.String())
 }
