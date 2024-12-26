@@ -21,14 +21,14 @@ func main() {
 	//fmt.Print("\033[H\033[2J")
 	fmt.Println("开始巡检系统资源使用情况...")
 	fmt.Println(art)
-	os_detection()                //调用操作系统巡检
-	database_inspection()         //调用数据库巡检
-	database_routine_inspection() //调用数据库常规巡检
+	//os_detection()                //调用操作系统巡检
+	//database_inspection()         //调用数据库巡检
+	//database_routine_inspection() //调用数据库常规巡检
 	test()
 }
 
 func test() {
-
+	detection.CPUUsageCheck()
 }
 
 // 操作系统巡检
