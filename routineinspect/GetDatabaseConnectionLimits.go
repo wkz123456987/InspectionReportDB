@@ -1,14 +1,16 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GetDatabaseConnectionLimits函数用于获取数据库连接限制相关信息，并以表格形式展示，同时输出相关建议。
-func GetDatabaseConnectionLimits() {
+// GetDatabaseConnectionLimits 用于获取数据库连接限制相关信息，并以表格形式展示，同时输出相关建议。
+func GetDatabaseConnectionLimits(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取数据库连接限制相关信息...")
+	resultWriter.WriteResult("\n###  数据库连接数限制:\n")
 	// 获取数据库连接限制相关信息
 	result := ConnectPostgreSQL("[QUERY_DATABASE_CONNECTION_LIMITS]")
 	if len(result) > 0 {
@@ -22,13 +24,16 @@ func GetDatabaseConnectionLimits() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到数据库连接限制相关信息")
+		logWriter.WriteLog("未查询到数据库连接限制相关信息")
+		resultWriter.WriteResult("未查询到数据库连接限制相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 给数据库设置足够的连接数, alter database... CONNECTION LIMIT.")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 给数据库设置足够的连接数，使用alter database... CONNECTION LIMIT来设置。
+	`
+	resultWriter.WriteResult(suggestion)
 }

@@ -1,21 +1,25 @@
 package inspection
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GarbageDataCheck函数用于检查数据库中垃圾数据情况，并以表格形式打印相关信息，同时输出相关建议。
-func GarbageDataCheck() {
+// GarbageDataCheck 函数用于检查数据库中垃圾数据情况，并以表格形式打印相关信息，同时输出相关建议。
+func GarbageDataCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始检查数据库中垃圾数据情况...")
+	resultWriter.WriteResult("\n###   检查数据库中垃圾数据情况:\n")
 	// 标记是否获取到有效数据，初始化为false
 	hasData := false
 
 	// 获取非template数据库名称
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
-		fmt.Println("未查询到有效数据库名称")
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称")
 		return
 	}
 	dbList := make([]string, len(dbNamesResult))
@@ -28,7 +32,7 @@ func GarbageDataCheck() {
 			continue
 		}
 		// 调用函数处理每个数据库的垃圾数据情况，更新hasData的值
-		hasDataForDb := printGarbageDataTable(db)
+		hasDataForDb := printGarbageDataTable(db, logWriter, resultWriter)
 		if hasDataForDb {
 			hasData = true
 		}
@@ -36,20 +40,22 @@ func GarbageDataCheck() {
 
 	// 根据是否有数据决定输出内容
 	if hasData {
-		fmt.Println("###  垃圾数据:")
+
 	} else {
-		fmt.Println("未查询到数据库中垃圾数据相关信息")
+		resultWriter.WriteResult("未查询到数据库中垃圾数据相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("\n建议: ")
-	fmt.Println("   > 通常垃圾过多, 可能是因为无法回收垃圾, 或者回收垃圾的进程繁忙或没有及时唤醒, 或者没有开启autovacuum, 或在短时间内产生了大量的垃圾. ")
-	fmt.Println("    可以等待autovacuum进行处理, 或者手工执行vacuum table. ")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 通常垃圾过多, 可能是因为无法回收垃圾, 或者回收垃圾的进程繁忙或没有及时唤醒, 或者没有开启autovacuum, 或在短时间内产生了大量的垃圾.
+        可以等待autovacuum进行处理, 或者手工执行vacuum table.
+	`
+	resultWriter.WriteResult(suggestion)
 }
 
 // printGarbageDataTable 打印指定数据库的垃圾数据情况表格
-func printGarbageDataTable(db string) bool {
+func printGarbageDataTable(db string, logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) bool {
 	// 创建用于当前数据库表格输出的对象并设置表头
 	buffer := &bytes.Buffer{}
 	writer := tablewriter.NewWriter(buffer)
@@ -66,8 +72,11 @@ func printGarbageDataTable(db string) bool {
 			writer.Append(row)
 		}
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 		currentHasData = true
+	} else {
+		logWriter.WriteLog(fmt.Sprintf("在数据库 %s 中未查询到垃圾数据相关信息", db))
+		resultWriter.WriteResult(fmt.Sprintf("在数据库 %s 中未查询到垃圾数据相关信息", db))
 	}
 
 	return currentHasData

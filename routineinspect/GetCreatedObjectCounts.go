@@ -1,18 +1,20 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
 // GetCreatedObjectCounts 用于获取用户创建的对象及数量信息
-func GetCreatedObjectCounts() {
-	// 先获取所有非template数据库名称
+func GetCreatedObjectCounts(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取用户创建的对象及数量信息...")
+	resultWriter.WriteResult("\n###  用户创建了多少对象:\n")
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
-		fmt.Println("未查询到有效数据库名称")
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称")
 		return
 	}
 	dbNames := make([]string, len(dbNamesResult))
@@ -43,13 +45,16 @@ func GetCreatedObjectCounts() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到用户创建的对象相关信息")
+		logWriter.WriteLog("未查询到用户创建的对象相关信息")
+		resultWriter.WriteResult("未查询到用户创建的对象相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 定期查看用户创建对象的情况，对于过多或长期未使用的对象可考虑清理，以优化数据库空间和性能。")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 定期查看用户创建对象的情况，对于过多或长期未使用的对象可考虑清理，以优化数据库空间和性能。
+	`
+	resultWriter.WriteResult(suggestion)
 }

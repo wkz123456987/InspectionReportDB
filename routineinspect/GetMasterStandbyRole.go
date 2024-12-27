@@ -1,14 +1,16 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GetMasterStandbyRole函数用于获取主备库角色信息，并以表格形式展示。
-func GetMasterStandbyRole() {
+// GetMasterStandbyRole 用于获取主备库角色信息，并以表格形式展示。
+func GetMasterStandbyRole(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取主备库角色信息...")
+	resultWriter.WriteResult("\n###  数据库主备角色:\n")
 	// 获取主备库角色信息
 	result := ConnectPostgreSQL("[QUERY_MASTER_STANDBY_ROLE]")
 	if len(result) > 0 {
@@ -22,8 +24,9 @@ func GetMasterStandbyRole() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到主备库角色相关信息")
+		logWriter.WriteLog("未查询到主备库角色相关信息")
+		resultWriter.WriteResult("未查询到主备库角色相关信息")
 	}
 }

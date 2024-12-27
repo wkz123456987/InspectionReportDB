@@ -1,26 +1,29 @@
 package detection
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
-	"log"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/ini.v1"
 )
 
-func FileSystemInodeUsageCheck() {
+// FileSystemInodeUsageCheck 读取配置文件并执行远程文件系统Inode使用情况检查
+func FileSystemInodeUsageCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始巡检远程文件系统Inode使用情况...")
 	cfg, err := ini.Load("database_config.ini")
 	if cfg == nil || err != nil {
-		log.Fatalf("无法读取配置文件: %v", err)
+		logWriter.WriteLog("无法读取配置文件: " + err.Error())
+		return
 	}
 	section := cfg.Section("Linux")
 	user := section.Key("User").String()
 	password := section.Key("Password").String()
 	port, err := section.Key("Port").Int()
 	if err != nil {
-		log.Fatalf("无法转换端口号: %v", err)
+		logWriter.WriteLog("无法转换端口号: " + err.Error())
+		return
 	}
 	host := section.Key("Host").String()
 
@@ -30,26 +33,28 @@ func FileSystemInodeUsageCheck() {
 		Host:     host,
 		Port:     port,
 	}
-	RemoteFileSystemInodeUsageCheck(sshConf)
-
+	RemoteFileSystemInodeUsageCheck(sshConf, logWriter, resultWriter)
 }
 
 // RemoteFileSystemInodeUsageCheck 获取远程文件系统Inode使用情况并展示
-func RemoteFileSystemInodeUsageCheck(sshConf SSHConfig) {
+func RemoteFileSystemInodeUsageCheck(sshConf SSHConfig, logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	result, err := ExecuteRemoteCommand(sshConf, "df -ih")
 	if err != nil {
-		fmt.Println(err)
+		logWriter.WriteLog("执行远程命令失败: " + err.Error())
 		return
 	}
 
-	processFileSystemInodeResult(result)
+	processFileSystemInodeResult(result, resultWriter)
 }
 
-func processFileSystemInodeResult(result string) {
+func processFileSystemInodeResult(result string, resultWriter *fileutils.ResultWriter) {
 	lines := strings.Split(strings.TrimSpace(result), "\n")
 	hasData := false
 
-	fmt.Println("### 远程文件系统Inode使用情况:")
+	// 写入标题
+	header := "### 远程文件系统Inode使用情况:\n"
+	resultWriter.WriteResult(header)
+
 	buffer := &bytes.Buffer{}
 	writer := tablewriter.NewWriter(buffer)
 	writer.SetAutoFormatHeaders(false)
@@ -75,13 +80,14 @@ func processFileSystemInodeResult(result string) {
 	}
 
 	if !hasData {
-		fmt.Println("未查询到远程文件系统Inode使用情况相关信息")
+		resultWriter.WriteResult("未查询到远程文件系统Inode使用情况相关信息")
 		return
 	}
 
 	writer.Render()
-	fmt.Println(buffer.String())
-	fmt.Println("说明：在一个文件系统中，每个文件和目录都需要占用一个inode。当inode耗尽时，即使磁盘空间还有剩余，也无法创建新的文件")
-	fmt.Println("建议: ")
-	fmt.Println("   > 时刻关注inode使用情况，及时清理无用文件和目录，释放inode空间。 ")
+	resultWriter.WriteResult(buffer.String())
+	// 写入说明和建议
+	resultWriter.WriteResult("说明：在一个文件系统中，每个文件和目录都需要占用一个inode。当inode耗尽时，即使磁盘空间还有剩余，也无法创建新的文件")
+	resultWriter.WriteResult("建议: ")
+	resultWriter.WriteResult("   > 时刻关注inode使用情况，及时清理无用文件和目录，释放inode空间。")
 }

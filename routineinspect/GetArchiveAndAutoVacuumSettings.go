@@ -1,14 +1,16 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GetArchiveAndAutoVacuumSettings函数用于获取是否开启归档、自动垃圾回收相关设置信息，并以表格形式展示，同时输出相关建议。
-func GetArchiveAndAutoVacuumSettings() {
+// GetArchiveAndAutoVacuumSettings 用于获取是否开启归档、自动垃圾回收相关设置信息，并以表格形式展示，同时输出相关建议。
+func GetArchiveAndAutoVacuumSettings(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取是否开启归档、自动垃圾回收相关设置信息...")
+	resultWriter.WriteResult("\n###  是否开启归档、自动垃圾回收相关设置信息:\n")
 	// 获取是否开启归档、自动垃圾回收设置信息
 	result := ConnectPostgreSQL("[QUERY_ARCHIVE_AND_AUTOVACUUM_SETTINGS]")
 	if len(result) > 0 {
@@ -22,13 +24,16 @@ func GetArchiveAndAutoVacuumSettings() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到是否开启归档、自动垃圾回收相关设置信息")
+		logWriter.WriteLog("未查询到是否开启归档、自动垃圾回收相关设置信息")
+		resultWriter.WriteResult("未查询到是否开启归档、自动垃圾回收相关设置信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 如果当前的wal文件和最后一个归档失败的wal文件之间相差很多个文件，建议尽快排查归档失败的原因，以便修复，否则pg_wal目录可能会撑爆。")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 如果当前的wal文件和最后一个归档失败的wal文件之间相差很多个文件，建议尽快排查归档失败的原因，以便修复，否则pg_wal目录可能会撑爆。
+	`
+	resultWriter.WriteResult(suggestion)
 }

@@ -1,18 +1,20 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GetInstalledPluginVersions函数用于获取已安装插件的版本信息，并以表格形式展示，同时输出相关建议。
-func GetInstalledPluginVersions() {
-	// 先获取所有非template数据库名称
+// GetInstalledPluginVersions 函数用于获取已安装插件的版本信息，并以表格形式展示，同时输出相关建议。
+func GetInstalledPluginVersions(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取已安装插件的版本信息...")
+	resultWriter.WriteResult("\n###  数据库插件版本:\n")
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
-		fmt.Println("未查询到有效数据库名称")
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称")
 		return
 	}
 	dbNames := make([]string, len(dbNamesResult))
@@ -43,13 +45,16 @@ func GetInstalledPluginVersions() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到用户已安装的插件版本相关信息")
+		logWriter.WriteLog("未查询到用户已安装的插件版本相关信息")
+		resultWriter.WriteResult("未查询到用户已安装的插件版本相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 定期检查已安装插件的版本，及时更新插件以获取更好的功能支持、性能优化以及安全修复等。")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 定期检查已安装插件的版本，及时更新插件以获取更好的功能支持、性能优化以及安全修复等。
+	`
+	resultWriter.WriteResult(suggestion)
 }

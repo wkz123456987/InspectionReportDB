@@ -125,15 +125,15 @@ select * from pg_stat_bgwriter;
 [QUERY_LONG_TRANSACTION_INFO]
 SELECT datname, usename, query, xact_start, (now() - xact_start) AS xact_duration, query_start, (now() - query_start) AS query_duration, state
 FROM pg_stat_activity
-WHERE state <> 'idle' AND (backend_xid IS NOT NULL OR backend_xmin IS NOT NULL) AND (now() - xact_start > interval '30 min')
+WHERE state <> 'idle' AND (backend_xid IS NOT NULL OR backend_xmin IS NOT NULL) AND (now() - xact_start > interval '3 s')
 ORDER BY xact_start;
 
 -- 获取2PC相关信息
 [QUERY_2PC_INFO]
-SELECT datname, usename, query, xact_start, (now() - xact_start) AS xact_duration, query_start, (now() - query_start) AS query_duration, state
-FROM pg_stat_activity
-WHERE state <> 'idle' AND (backend_xid IS NOT NULL OR backend_xmin IS NOT NULL) AND (now() - xact_start > interval '30 min')
-ORDER BY xact_start;
+SELECT transaction, gid, prepared, owner, database, (now() - prepared) AS duration
+FROM pg_prepared_xacts
+WHERE (now() - prepared) > INTERVAL '3 s'
+ORDER BY prepared;
 
 -- 获取用户密码到期时间信息
 [QUERY_USER_PASSWORD_EXPIRATION]

@@ -1,18 +1,20 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GetUsedDataTypeCounts函数用于获取用户使用的数据类型统计信息，并以表格形式展示，同时输出相关建议。
-func GetUsedDataTypeCounts() {
-	// 先获取所有非template数据库名称
+// GetUsedDataTypeCounts 函数用于获取用户使用的数据类型统计信息，并以表格形式展示，同时输出相关建议。
+func GetUsedDataTypeCounts(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取用户使用的数据类型统计信息...")
+	resultWriter.WriteResult("\n###  用户使用了多少种数据类型:\n")
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
-		fmt.Println("未查询到有效数据库名称")
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称")
 		return
 	}
 	dbNames := make([]string, len(dbNamesResult))
@@ -43,13 +45,16 @@ func GetUsedDataTypeCounts() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到用户使用的数据类型相关信息")
+		logWriter.WriteLog("未查询到用户使用的数据类型相关信息")
+		resultWriter.WriteResult("未查询到用户使用的数据类型相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 关注常用的数据类型，对于使用频率极低的数据类型可考虑是否合理，必要时进行优化调整。")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 关注常用的数据类型，对于使用频率极低的数据类型可考虑是否合理，必要时进行优化调整。
+	`
+	resultWriter.WriteResult(suggestion)
 }

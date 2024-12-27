@@ -20,7 +20,7 @@ ORDER BY t3.idx_cnt DESC
 
 -- 获取指定数据库中重复索引信息
 [QUERY_REPEAT_INDEX_INFO]
-SELECT indrelid::regclass AS TableName, array_agg(indexrelid::regclass) AS Indexes 
+SELECT current_database() as dbname,indrelid::regclass AS TableName, array_agg(indexrelid::regclass) AS Indexes 
 FROM pg_index 
 GROUP BY indrelid, indkey 
 HAVING COUNT(*) > 1

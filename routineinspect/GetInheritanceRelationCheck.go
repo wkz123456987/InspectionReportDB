@@ -1,18 +1,21 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// GetInheritanceRelationCheck函数用于获取继承关系检查相关信息，并以表格形式展示，同时输出相关建议。
-func GetInheritanceRelationCheck() {
+// GetInheritanceRelationCheck 用于获取继承关系检查相关信息，并以表格形式展示，同时输出相关建议。
+func GetInheritanceRelationCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取继承关系检查相关信息...")
+	resultWriter.WriteResult("\n### 表的继承关系检查相关信息:\n")
 	// 先获取所有非template数据库名称
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
-		fmt.Println("未查询到有效数据库名称")
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称")
 		return
 	}
 	dbNames := make([]string, len(dbNamesResult))
@@ -43,14 +46,17 @@ func GetInheritanceRelationCheck() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到继承关系检查相关信息")
+		logWriter.WriteLog("未查询到继承关系检查相关信息")
+		resultWriter.WriteResult("未查询到继承关系检查相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 如果使用继承来实现分区表，注意分区表的触发器中逻辑是否正常，对于时间模式的分区表是否需要及时加分区，修改触发器函数。")
-	fmt.Println("   建议继承表的权限统一，如果权限不一致，可能导致某些用户查询时权限不足。")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 如果使用继承来实现分区表，注意分区表的触发器中逻辑是否正常，对于时间模式的分区表是否需要及时加分区，修改触发器函数。
+        > 建议继承表的权限统一，如果权限不一致，可能导致某些用户查询时权限不足。
+	`
+	resultWriter.WriteResult(suggestion)
 }

@@ -1,17 +1,20 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-func GetUserObjectSpaceInfo() {
-	// 先获取所有非template数据库名称
+// GetUserObjectSpaceInfo 用于获取用户对象占用空间的信息
+func GetUserObjectSpaceInfo(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取用户对象占用空间的信息...")
+	resultWriter.WriteResult("\n###  用户对象占用空间的柱状图:\n")
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
-		fmt.Println("未查询到有效数据库名称")
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称")
 		return
 	}
 	dbNames := make([]string, len(dbNamesResult))
@@ -42,13 +45,16 @@ func GetUserObjectSpaceInfo() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到用户对象占用空间相关信息")
+		logWriter.WriteLog("未查询到用户对象占用空间相关信息")
+		resultWriter.WriteResult("未查询到用户对象占用空间相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 关注用户对象占用空间情况，对于占用空间较大的对象可考虑优化存储结构或进行归档处理，以节省数据库空间。")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 关注用户对象占用空间情况，对于占用空间较大的对象可考虑优化存储结构或进行归档处理，以节省数据库空间。
+	`
+	resultWriter.WriteResult(suggestion)
 }

@@ -1,9 +1,9 @@
 package detection
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -11,45 +11,50 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-func MemoryUsageCheck() {
+func MemoryUsageCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始巡检远程内存使用率...")
 	cfg, err := ini.Load("database_config.ini")
 	if cfg == nil || err != nil {
-		log.Fatalf("无法读取配置文件: %v", err)
+		logWriter.WriteLog("无法读取配置文件: " + err.Error())
+		return
 	}
 	section := cfg.Section("Linux")
 	user := section.Key("User").String()
 	password := section.Key("Password").String()
 	port, err := section.Key("Port").Int()
 	if err != nil {
-		log.Fatalf("无法转换端口号: %v", err)
+		logWriter.WriteLog("无法转换端口号: " + err.Error())
+		return
 	}
 	host := section.Key("Host").String()
-
 	sshConf := SSHConfig{
 		User:     user,
 		Password: password,
 		Host:     host,
 		Port:     port,
 	}
-	RemoteMemoryUsageCheck(sshConf)
+	RemoteMemoryUsageCheck(sshConf, logWriter, resultWriter)
 }
 
 // RemoteMemoryUsageCheck 获取远程内存使用率并展示
-func RemoteMemoryUsageCheck(sshConf SSHConfig) {
+func RemoteMemoryUsageCheck(sshConf SSHConfig, logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	result, err := ExecuteRemoteCommand(sshConf, "free")
 	if err != nil {
-		fmt.Println(err)
+		logWriter.WriteLog("执行远程命令失败: " + err.Error())
 		return
 	}
 
-	processMemoryUsageResult(result)
+	processMemoryUsageResult(result, resultWriter)
 }
 
-func processMemoryUsageResult(result string) {
+func processMemoryUsageResult(result string, resultWriter *fileutils.ResultWriter) {
 	lines := strings.Split(strings.TrimSpace(result), "\n")
 	hasData := false
 
-	fmt.Println("### 远程内存使用率:")
+	// 写入标题
+	header := "### 远程内存使用率:\n"
+	resultWriter.WriteResult(header)
+
 	buffer := &bytes.Buffer{}
 	writer := tablewriter.NewWriter(buffer)
 	writer.SetAutoFormatHeaders(false)
@@ -71,15 +76,16 @@ func processMemoryUsageResult(result string) {
 	}
 
 	if !hasData {
-		fmt.Println("未查询到远程内存使用率相关信息")
+		resultWriter.WriteResult("未查询到远程内存使用率相关信息")
 		return
 	}
 
 	writer.Render()
-	fmt.Println(buffer.String())
+	resultWriter.WriteResult(buffer.String())
 
-	fmt.Println("建议: ")
-	fmt.Println("   > 注意检查业务中内存占用高的原因. ")
+	// 写入建议
+	resultWriter.WriteResult("建议: ")
+	resultWriter.WriteResult("   > 注意检查业务中内存占用高的原因. ")
 }
 
 func atoi(s string) int {

@@ -1,59 +1,65 @@
 package detection
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/ini.v1"
 )
 
-func DiskIOCheck() {
+func DiskIOCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始巡检远程磁盘IO使用率...")
 	cfg, err := ini.Load("database_config.ini")
+	if err != nil || cfg == nil {
+		logWriter.WriteLog("无法读取配置文件: " + err.Error())
+		return
+	}
 	section := cfg.Section("Linux")
 	user := section.Key("User").String()
 	password := section.Key("Password").String()
 	port, err := section.Key("Port").Int()
 	if err != nil {
-		log.Fatalf("无法转换端口号: %v", err)
+		logWriter.WriteLog("无法转换端口号: " + err.Error())
+		return
 	}
 	host := section.Key("Host").String()
-
 	sshConf := SSHConfig{
 		User:     user,
 		Password: password,
 		Host:     host,
 		Port:     port,
 	}
-	RemoteDiskIOCheck(sshConf)
+	RemoteDiskIOCheck(sshConf, logWriter, resultWriter)
 }
 
 // RemoteDiskIOCheck 获取远程磁盘IO情况并展示
-func RemoteDiskIOCheck(sshConf SSHConfig) {
+func RemoteDiskIOCheck(sshConf SSHConfig, logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	firstResult, err := ExecuteRemoteCommand(sshConf, "iostat -mx 1 1")
 	if err != nil {
-		fmt.Println(err)
+		logWriter.WriteLog("执行远程命令失败: " + err.Error())
 		return
 	}
 	diskDevices := parseDiskDevices(firstResult)
 	if len(diskDevices) > 0 {
-		fmt.Println("### 远程输出磁盘IO情况:")
+		header := "### 远程输出磁盘IO情况:\n"
+		resultWriter.WriteResult(header)
 		for _, disk := range diskDevices {
 			ioResult, err := ExecuteRemoteCommand(sshConf, fmt.Sprintf("iostat -mx 1 2 %s", disk))
 			if err != nil {
-				fmt.Printf("Failed to execute command for disk %s: %s\n", disk, err)
+				logWriter.WriteLog(fmt.Sprintf("Failed to execute command for disk %s: %s", disk, err))
 				continue
 			}
-			parseAndAppendIOResult(ioResult, disk)
+			parseAndAppendIOResult(ioResult, disk, resultWriter)
 		}
 	} else {
-		fmt.Println("未查询到远程磁盘IO情况相关信息")
+		resultWriter.WriteResult("未查询到远程磁盘IO情况相关信息")
 	}
 
-	fmt.Println("建议: ")
-	fmt.Println("   > 注意检查IO占用高的原因.")
+	resultWriter.WriteResult("建议: ")
+	resultWriter.WriteResult("   > 注意检查IO占用高的原因.")
 }
 
 func parseDiskDevices(result string) []string {
@@ -68,7 +74,7 @@ func parseDiskDevices(result string) []string {
 	return diskDevices
 }
 
-func parseAndAppendIOResult(result string, disk string) {
+func parseAndAppendIOResult(result string, disk string, resultWriter *fileutils.ResultWriter) {
 	ioLines := strings.Split(strings.TrimSpace(result), "\n")
 	buffer := &bytes.Buffer{}
 	writer := tablewriter.NewWriter(buffer)
@@ -89,5 +95,5 @@ func parseAndAppendIOResult(result string, disk string) {
 		}
 	}
 	writer.Render()
-	fmt.Println(buffer.String())
+	resultWriter.WriteResult(buffer.String())
 }
