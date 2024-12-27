@@ -1,209 +1,174 @@
 package inspection
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
-	"fmt"
-	"os/exec"
-	"regexp"
-	"strings"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// PasswordLeakCheck 函数用于检查密码泄露情况，并以表格形式打印相关信息。
-func PasswordLeakCheck() {
+// PasswordLeakCheck 函数用于检查密码泄露情况，并以表格形式打印相关信息，同时输出相关建议。
+func PasswordLeakCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始检查密码泄露情况...")
 	// 标记是否获取到有效数据，初始化为false
 	hasDataPgAuthid := false
 	hasDataPgUserMappings := false
 	hasDataPgViews := false
 
 	// 打印整体标题
-	fmt.Println("###  密码泄露检查:")
+	resultWriter.WriteResult("### 密码泄露检查:")
 
 	// 检查 pg_authid部分
-	fmt.Println("#### 检查 pg_authid：")
-	hasDataPgAuthid = checkPgAuthid()
+	resultWriter.WriteResult("#### 检查 pg_authid：")
+	hasDataPgAuthid = checkPgAuthid(logWriter, resultWriter)
 
 	// 检查 pg_user_mappings, pg_views部分
-	fmt.Println("#### 检查 pg_user_mappings, pg_views：")
-	hasDataPgUserMappings = checkPgUserMappings()
-	hasDataPgViews = checkPgViews()
+	resultWriter.WriteResult("#### 检查 pg_user_mappings, pg_views：")
+	hasDataPgUserMappings = checkPgUserMappings(logWriter, resultWriter)
+	hasDataPgViews = checkPgViews(logWriter, resultWriter)
 
 	// 根据是否有数据决定各部分输出内容
 	if hasDataPgAuthid {
-		fmt.Println("以下是pg_authid相关检查结果：")
+		resultWriter.WriteResult("以下是pg_authid相关检查结果：")
 	} else {
-		fmt.Println("未查询到pg_authid中密码泄露相关信息")
+		resultWriter.WriteResult("未查询到pg_authid中密码泄露相关信息")
 	}
 
 	if hasDataPgUserMappings {
-		fmt.Println("以下是pg_user_mappings相关检查结果：")
+		resultWriter.WriteResult("以下是pg_user_mappings相关检查结果：")
 	} else {
-		fmt.Println("未查询到pg_user_mappings中密码泄露相关信息")
+		resultWriter.WriteResult("未查询到pg_user_mappings中密码泄露相关信息")
 	}
 
 	if hasDataPgViews {
-		fmt.Println("以下是pg_views相关检查结果：")
+		resultWriter.WriteResult("以下是pg_views相关检查结果：")
 	} else {
-		fmt.Println("未查询到pg_views中密码泄露相关信息")
+		resultWriter.WriteResult("未查询到pg_views中密码泄露相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("\n建议: ")
-	fmt.Println("   > 如果以上输出显示密码已泄露, 尽快修改, 并通过参数避免密码又被记录到以上文件中(psql -n) (set log_statement='none'; set log_min_duration_statement=-1; set log_duration=off; set pg_stat_statements.track_utility=off;). ")
-	fmt.Println("    明文密码不安全, 建议使用create|alter role... encrypted password. ")
-	fmt.Println("    在fdw, dblink based view中不建议使用密码明文. ")
-	fmt.Println("    在recovery.*的配置中不要使用密码, 不安全, 可以使用.pgpass配置密码. ")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 如果以上输出显示密码已泄露, 尽快修改, 并通过参数避免密码又被记录到以上文件中(psql -n) (set log_statement='none'; set log_min_duration_statement=-1; set log_duration=off; set pg_stat_statements.track_utility=off;). 
+        明文密码不安全, 建议使用create|alter role... encrypted password. 
+        在fdw, dblink based view中不建议使用密码明文. 
+        在recovery.*的配置中不要使用密码, 不安全, 可以使用.pgpass配置密码. 
+	`
+	resultWriter.WriteResult(suggestion)
 }
 
 // checkPgAuthid 检查pg_authid中密码相关情况并输出结果
-func checkPgAuthid() bool {
+func checkPgAuthid(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) bool {
 	// 标记当前部分是否获取到有效数据，初始化为false
 	hasData := false
 
-	// 构建psql命令以获取pg_authid相关信息
-	cmd := exec.Command("psql", "--pset=pager=off", "-t", "--pset=border=2", "-q", "-c", `select count(*) from pg_authid where rolpassword!~ '^md5' or length(rolpassword)<>35`)
-	var result bytes.Buffer
-	cmd.Stdout = &result
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command for pg_authid check: %s\n", err)
-		return false
-	}
-
-	// 解析结果判断是否有有效数据
-	lines := strings.Split(strings.TrimSpace(result.String()), "\n")
-	for _, line := range lines {
-		if line != "" {
-			hasData = true
-			break
-		}
-	}
-
-	if hasData {
+	// 获取pg_authid相关信息
+	result := ConnectPostgreSQL("[QUERY_PG_AUTHID_CHECK]")
+	if len(result) > 0 {
 		buffer := &bytes.Buffer{}
 		writer := tablewriter.NewWriter(buffer)
 		writer.SetAutoFormatHeaders(true)
 		writer.SetHeader([]string{"计数"})
 
-		writer.Append([]string{lines[0]})
+		writer.Append(result[0])
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
+		hasData = true
+	} else {
+		logWriter.WriteLog("未查询到pg_authid中密码泄露相关信息")
+		resultWriter.WriteResult("未查询到pg_authid中密码泄露相关信息")
 	}
 
 	return hasData
 }
 
 // checkPgUserMappings 检查pg_user_mappings中密码相关情况并输出结果
-func checkPgUserMappings() bool {
+func checkPgUserMappings(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) bool {
 	// 标记当前部分是否获取到有效数据，初始化为false
 	hasData := false
 
-	// 执行psql命令获取数据库列表
-	cmd := exec.Command("psql", "--pset=pager=off", "-t", "-A", "-q", "-c", "SELECT datname FROM pg_database WHERE datname NOT IN ('template0', 'template1')")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command for getting database list: %s\n", err)
+	// 获取非template数据库名称
+	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
+	if len(dbNamesResult) == 0 {
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称\n")
 		return false
 	}
+	dbList := make([]string, len(dbNamesResult))
+	for i, row := range dbNamesResult {
+		dbList[i] = row[0]
+	}
 
-	// 解析数据库列表并遍历
-	dbList := strings.Split(strings.TrimSpace(out.String()), "\n")
 	var tableData string
 	for _, db := range dbList {
 		if db == "" {
 			continue
 		}
-		// 构建psql命令以获取pg_user_mappings相关信息
-		cmd := exec.Command("psql", "-d", db, "--pset=pager=off", "-t", "--pset=border=2", "-q", "-c", `select current_database(),* from pg_user_mappings where umoptions::text ~* 'password'`)
-		var result bytes.Buffer
-		cmd.Stdout = &result
-		err := cmd.Run()
-		if err != nil {
-			fmt.Printf("Failed to execute command for pg_user_mappings in database %s: %s\n", db, err)
-			continue
-		}
-
-		// 使用正则表达式提取每行的数据（可根据实际数据格式调整正则表达式）
-		lines := strings.Split(strings.TrimSpace(result.String()), "\n")
-		for _, line := range lines {
-			re := regexp.MustCompile(`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|`)
-			matches := re.FindStringSubmatch(line)
-
-			if len(matches) == 6 {
-				if hasData == false {
-					headers := []string{"数据库", "umid", "umuser", "usename", "umoptions"}
-					tableData = buildTableRow(headers) + buildTableRow([]string{strings.TrimSpace(matches[1]), strings.TrimSpace(matches[2]), strings.TrimSpace(matches[3]), strings.TrimSpace(matches[4]), strings.TrimSpace(matches[5])})
-					hasData = true
-				} else {
-					tableData += buildTableRow([]string{strings.TrimSpace(matches[1]), strings.TrimSpace(matches[2]), strings.TrimSpace(matches[3]), strings.TrimSpace(matches[4]), strings.TrimSpace(matches[5])})
-				}
+		// 获取pg_user_mappings相关信息
+		pgUserMappingsResult := ConnectPostgreSQL("[QUERY_PG_USER_MAPPINGS_CHECK]", db)
+		if len(pgUserMappingsResult) > 0 {
+			if hasData == false {
+				headers := []string{"数据库", "umid", "umuser", "usename", "umoptions"}
+				tableData = buildTableRow(headers)
 			}
+			for _, row := range pgUserMappingsResult {
+				tableData += buildTableRow(row)
+			}
+			hasData = true
 		}
 	}
 
 	if hasData {
-		fmt.Println(tableData)
+		resultWriter.WriteResult(tableData)
+	} else {
+		logWriter.WriteLog("未查询到pg_user_mappings中密码泄露相关信息")
+		resultWriter.WriteResult("未查询到pg_user_mappings中密码泄露相关信息")
 	}
 
 	return hasData
 }
 
 // checkPgViews 检查pg_views中密码相关情况并输出结果
-func checkPgViews() bool {
+func checkPgViews(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) bool {
 	// 标记当前部分是否获取到有效数据，初始化为false
 	hasData := false
 
-	// 执行psql命令获取数据库列表
-	cmd := exec.Command("psql", "--pset=pager=off", "-t", "-A", "-q", "-c", "SELECT datname FROM pg_database WHERE datname NOT IN ('template0', 'template1')")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command for getting database list: %s\n", err)
+	// 获取非template数据库名称
+	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
+	if len(dbNamesResult) == 0 {
+		logWriter.WriteLog("未查询到有效数据库名称")
+		resultWriter.WriteResult("未查询到有效数据库名称\n")
 		return false
 	}
+	dbList := make([]string, len(dbNamesResult))
+	for i, row := range dbNamesResult {
+		dbList[i] = row[0]
+	}
 
-	// 解析数据库列表并遍历
-	dbList := strings.Split(strings.TrimSpace(out.String()), "\n")
 	var tableData string
 	for _, db := range dbList {
 		if db == "" {
 			continue
 		}
-		// 构建psql命令以获取pg_views相关信息
-		cmd := exec.Command("psql", "-d", db, "--pset=pager=off", "-t", "--pset=border=2", "-q", "-c", `select current_database(),* from pg_views where definition ~* 'password' and definition ~* 'dblink'`)
-		var result bytes.Buffer
-		cmd.Stdout = &result
-		err := cmd.Run()
-		if err != nil {
-			fmt.Printf("Failed to execute command for pg_views in database %s: %s\n", db, err)
-			continue
-		}
-
-		// 使用正则表达式提取每行的数据（可根据实际数据格式调整正则表达式）
-		lines := strings.Split(strings.TrimSpace(result.String()), "\n")
-		for _, line := range lines {
-			re := regexp.MustCompile(`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|`)
-			matches := re.FindStringSubmatch(line)
-
-			if len(matches) == 6 {
-				if hasData == false {
-					headers := []string{"数据库", "schemaname", "viewname", "viewowner", "definition"}
-					tableData = buildTableRow(headers) + buildTableRow([]string{strings.TrimSpace(matches[1]), strings.TrimSpace(matches[2]), strings.TrimSpace(matches[3]), strings.TrimSpace(matches[4]), strings.TrimSpace(matches[5])})
-					hasData = true
-				} else {
-					tableData += buildTableRow([]string{strings.TrimSpace(matches[1]), strings.TrimSpace(matches[2]), strings.TrimSpace(matches[3]), strings.TrimSpace(matches[4]), strings.TrimSpace(matches[5])})
-				}
+		// 获取pg_views相关信息
+		pgViewsResult := ConnectPostgreSQL("[QUERY_PG_VIEWS_CHECK]", db)
+		if len(pgViewsResult) > 0 {
+			if hasData == false {
+				headers := []string{"数据库", "schemaname", "viewname", "viewowner", "definition"}
+				tableData = buildTableRow(headers)
 			}
+			for _, row := range pgViewsResult {
+				tableData += buildTableRow(row)
+			}
+			hasData = true
 		}
 	}
 
 	if hasData {
-		fmt.Println(tableData)
+		resultWriter.WriteResult(tableData)
+	} else {
+		logWriter.WriteLog("未查询到pg_views中密码泄露相关信息")
+		resultWriter.WriteResult("未查询到pg_views中密码泄露相关信息")
 	}
 
 	return hasData

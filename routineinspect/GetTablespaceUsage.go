@@ -1,6 +1,7 @@
 package routineinspect
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
 	"fmt"
 	"os/exec"
@@ -10,7 +11,10 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-func GetTablespaceUsage() {
+// GetTablespaceUsage 函数用于获取表空间使用情况信息，并以表格形式展示，同时输出相关建议。
+func GetTablespaceUsage(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始获取表空间使用情况信息...")
+	resultWriter.WriteResult("\n###  表空间使用情况:\n")
 	// 标记是否获取到有效数据，初始化为false
 	hasData := false
 
@@ -20,7 +24,8 @@ func GetTablespaceUsage() {
 	cmd.Stdout = &result
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("执行获取表空间使用情况命令失败: %s\n", err)
+		logWriter.WriteLog(fmt.Sprintf("执行获取表空间使用情况命令失败: %s", err))
+		resultWriter.WriteResult(fmt.Sprintf("执行获取表空间使用情况命令失败: %s", err))
 		return
 	}
 
@@ -60,13 +65,15 @@ func GetTablespaceUsage() {
 		}
 
 		writer.Render()
-		fmt.Println(buffer.String())
+		resultWriter.WriteResult(buffer.String())
 	} else {
-		fmt.Println("未查询到表空间使用情况相关信息")
+		resultWriter.WriteResult("未查询到表空间使用情况相关信息")
 	}
 
 	// 打印建议
-	fmt.Println("建议: ")
-	fmt.Println("   > 注意检查表空间所在文件系统的剩余空间, (默认表空间在$PGDATA/base目录下), IOPS分配是否均匀, OS的sysstat包可以观察IO使用率.")
-	fmt.Println()
+	suggestion := `
+    建议:
+        > 注意检查表空间所在文件系统的剩余空间, (默认表空间在$PGDATA/base目录下), IOPS分配是否均匀, OS的sysstat包可以观察IO使用率.
+	`
+	resultWriter.WriteResult(suggestion)
 }
