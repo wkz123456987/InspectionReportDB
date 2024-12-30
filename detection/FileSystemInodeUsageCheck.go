@@ -6,34 +6,13 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"gopkg.in/ini.v1"
 )
 
 // FileSystemInodeUsageCheck 读取配置文件并执行远程文件系统Inode使用情况检查
 func FileSystemInodeUsageCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	logWriter.WriteLog("开始巡检远程文件系统Inode使用情况...")
-	cfg, err := ini.Load("database_config.ini")
-	if cfg == nil || err != nil {
-		logWriter.WriteLog("无法读取配置文件: " + err.Error())
-		return
-	}
-	section := cfg.Section("Linux")
-	user := section.Key("User").String()
-	password := section.Key("Password").String()
-	port, err := section.Key("Port").Int()
-	if err != nil {
-		logWriter.WriteLog("无法转换端口号: " + err.Error())
-		return
-	}
-	host := section.Key("Host").String()
 
-	sshConf := SSHConfig{
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     port,
-	}
-	RemoteFileSystemInodeUsageCheck(sshConf, logWriter, resultWriter)
+	RemoteFileSystemInodeUsageCheck(GetSSHConfig(logWriter), logWriter, resultWriter)
 }
 
 // RemoteFileSystemInodeUsageCheck 获取远程文件系统Inode使用情况并展示

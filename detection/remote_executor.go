@@ -1,10 +1,12 @@
 package detection
 
 import (
+	"GoBasic/utils/fileutils"
 	"bytes"
 	"fmt"
 
 	"golang.org/x/crypto/ssh"
+	"gopkg.in/ini.v1"
 )
 
 // SSHConfig 用于配置SSH连接相关参数
@@ -13,6 +15,44 @@ type SSHConfig struct {
 	Password string
 	Host     string
 	Port     int
+}
+
+func GetSSHConfig(logWriter *fileutils.LogWriter) SSHConfig {
+
+	// 先尝试加载配置文件获取基本信息
+	cfg, err := ini.Load("../config/database_config.ini")
+	if cfg == nil || err != nil {
+		logWriter.WriteLog("无法读取配置文件: " + err.Error())
+	}
+	section := cfg.Section("Linux")
+	user := section.Key("User").String()
+	// 加载配置文件 "database_config.ini"
+	cfg_password, err := ini.LoadSources(ini.LoadOptions{
+		AllowBooleanKeys:    true,
+		IgnoreInlineComment: true, // 禁止#注释
+	}, "../config/database_config.ini")
+
+	if cfg_password == nil || err != nil {
+		logWriter.WriteLog("无法读取配置文件: " + err.Error())
+	}
+	// 获取配置文件中 "Linux" 节
+	section_password := cfg_password.Section("Linux")
+	// 使用StringWithShadows来获取包括注释在内的整行内容
+	password := section_password.Key("Password").String()
+
+	port, err := section.Key("Port").Int()
+	if err != nil {
+		logWriter.WriteLog("无法转换端口号: " + err.Error())
+	}
+	host := section.Key("Host").String()
+
+	sshConf := SSHConfig{
+		User:     user,
+		Password: password,
+		Host:     host,
+		Port:     port,
+	}
+	return sshConf
 }
 
 // ExecuteRemoteCommand 通过SSH远程执行命令并返回结果

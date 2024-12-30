@@ -21,7 +21,7 @@ var (
 func main() {
 
 	// 读取配置文件获取数据库配置信息
-	cfg, err := ini.Load("database_config.ini")
+	cfg, err := ini.Load("../config/database_config.ini")
 	if err != nil || cfg == nil {
 		log.Fatalf("无法加载配置文件: %v", err)
 		logWriter.WriteLog("无法加载配置文件: " + err.Error())

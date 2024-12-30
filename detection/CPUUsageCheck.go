@@ -6,43 +6,18 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"gopkg.in/ini.v1"
 )
 
 // CPUUsageCheck 读取配置文件并执行远程CPU使用率检查
 func CPUUsageCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	logWriter.WriteLog("开始巡检远程系统CPU使用率...")
-	cfg, err := ini.Load("database_config.ini")
-	if cfg == nil || err != nil {
-		logWriter.WriteLog("无法读取配置文件: " + err.Error())
-		return
-	}
-	section := cfg.Section("Linux")
-	user := section.Key("User").String()
-	password := section.Key("Password").String()
-	port, err := section.Key("Port").Int()
-	if err != nil {
-		logWriter.WriteLog("无法转换端口号: " + err.Error())
-		return
-	}
-	host := section.Key("Host").String()
-	CPUUsageCheck1(user, password, host, port, logWriter, resultWriter)
-}
-
-// CPUUsageCheck1 检查远程Linux系统的CPU使用率
-func CPUUsageCheck1(user, password, host string, port int, logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
-	sshConf := SSHConfig{
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     port,
-	}
-	result, err := ExecuteRemoteCommand(sshConf, "top -b -n 1")
+	result, err := ExecuteRemoteCommand(GetSSHConfig(logWriter), "top -b -n 1")
 	if err != nil {
 		logWriter.WriteLog("执行远程命令失败: " + err.Error())
 		return
 	}
 	processCPUUsageResult(result, resultWriter)
+
 }
 
 func processCPUUsageResult(result string, resultWriter *fileutils.ResultWriter) {

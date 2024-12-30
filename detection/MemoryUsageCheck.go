@@ -8,32 +8,11 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"gopkg.in/ini.v1"
 )
 
 func MemoryUsageCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	logWriter.WriteLog("开始巡检远程内存使用率...")
-	cfg, err := ini.Load("database_config.ini")
-	if cfg == nil || err != nil {
-		logWriter.WriteLog("无法读取配置文件: " + err.Error())
-		return
-	}
-	section := cfg.Section("Linux")
-	user := section.Key("User").String()
-	password := section.Key("Password").String()
-	port, err := section.Key("Port").Int()
-	if err != nil {
-		logWriter.WriteLog("无法转换端口号: " + err.Error())
-		return
-	}
-	host := section.Key("Host").String()
-	sshConf := SSHConfig{
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     port,
-	}
-	RemoteMemoryUsageCheck(sshConf, logWriter, resultWriter)
+	RemoteMemoryUsageCheck(GetSSHConfig(logWriter), logWriter, resultWriter)
 }
 
 // RemoteMemoryUsageCheck 获取远程内存使用率并展示
@@ -82,7 +61,6 @@ func processMemoryUsageResult(result string, resultWriter *fileutils.ResultWrite
 
 	writer.Render()
 	resultWriter.WriteResult(buffer.String())
-
 	// 写入建议
 	resultWriter.WriteResult("建议: ")
 	resultWriter.WriteResult("   > 注意检查业务中内存占用高的原因. ")

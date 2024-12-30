@@ -22,7 +22,7 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 	}
 
 	// 拼接SQL文件的完整路径并读取文件内容
-	sqlBytes, err := ioutil.ReadFile(filepath.Join(projectPath, "SQL", "routineinspect.sql"))
+	sqlBytes, err := ioutil.ReadFile(filepath.Join(projectPath, "../SQL", "routineinspect.sql"))
 	if err != nil {
 		log.Fatalf("读取SQL文件失败: %v", err)
 	}
@@ -33,7 +33,7 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 		log.Fatal("未找到匹配的SQL语句")
 	}
 	// 读取配置文件获取数据库配置信息
-	cfg, err := ini.Load("database_config.ini")
+	cfg, err := ini.Load("../config/database_config.ini")
 	if err != nil {
 		log.Fatalf("无法读取配置文件: %v", err)
 	}
@@ -42,7 +42,19 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 	hostname := section.Key("Hostname").String()
 	port := section.Key("Port").String()
 	username := section.Key("Username").String()
-	password := section.Key("Password").String()
+	// 加载配置文件 "database_config.ini"
+	cfg_password, err := ini.LoadSources(ini.LoadOptions{
+		AllowBooleanKeys:    true,
+		IgnoreInlineComment: true, // 禁止#注释
+	}, "../config/database_config.ini")
+
+	if cfg_password == nil || err != nil {
+		log.Fatalf("无法读取配置文件: " + err.Error())
+	}
+	// 获取配置文件中 "Linux" 节
+	section_password := cfg_password.Section("Database")
+	// 使用StringWithShadows来获取包括注释在内的整行内容
+	password := section_password.Key("Password").String()
 
 	// 构建连接字符串并连接数据库，同时检查连接有效性
 	var actualDBName string
