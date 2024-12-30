@@ -37,6 +37,8 @@ cd bin
 
 
 ## 项目文件架构
+
+```plaintext
 [root@postgres delve_test]# tree
 .
 |-- bin
@@ -100,3 +102,4 @@ cd bin
     `-- fileutils
         `-- fileutils.go
 
+```
