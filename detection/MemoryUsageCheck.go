@@ -2,12 +2,9 @@ package detection
 
 import (
 	"GoBasic/utils/fileutils"
-	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 func MemoryUsageCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
@@ -31,14 +28,12 @@ func processMemoryUsageResult(result string, resultWriter *fileutils.ResultWrite
 	hasData := false
 
 	// 写入标题
-	header := "### 远程内存使用率:\n"
+	header := "### 1.2、内存使用率:\n"
 	resultWriter.WriteResult(header)
 
-	buffer := &bytes.Buffer{}
-	writer := tablewriter.NewWriter(buffer)
-	writer.SetAutoFormatHeaders(false)
-	writer.SetHeader([]string{"内存使用率"})
-	writer.SetAlignment(tablewriter.ALIGN_LEFT)
+	// Markdown 表格的表头和分隔行
+	memoryUsageHeader := "| 内存使用率 |\n|------------|"
+	resultWriter.WriteResult(memoryUsageHeader)
 
 	// 重新解析结果提取内存使用率数据并添加到表格
 	for _, line := range lines {
@@ -48,7 +43,8 @@ func processMemoryUsageResult(result string, resultWriter *fileutils.ResultWrite
 				used := fields[2]
 				total := fields[1]
 				usageRate := fmt.Sprintf("%.0f%%", float64(atoi(used))/float64(atoi(total))*100)
-				writer.Append([]string{usageRate})
+				// Markdown 表格的单元格
+				resultWriter.WriteResult(fmt.Sprintf("| %s |\n", usageRate))
 				hasData = true
 			}
 		}
@@ -59,11 +55,9 @@ func processMemoryUsageResult(result string, resultWriter *fileutils.ResultWrite
 		return
 	}
 
-	writer.Render()
-	resultWriter.WriteResult(buffer.String())
 	// 写入建议
-	resultWriter.WriteResult("建议: ")
-	resultWriter.WriteResult("   > 注意检查业务中内存占用高的原因. ")
+	suggestion := "**建议:** \n   > 注意检查业务中内存占用高的原因. "
+	resultWriter.WriteResult(suggestion)
 }
 
 func atoi(s string) int {

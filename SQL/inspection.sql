@@ -27,19 +27,14 @@ HAVING COUNT(*) > 1
 
 -- 获取指定数据库中未使用或使用较少的索引信息
 [QUERY_UNUSED_INDEXES_INFO]
-SELECT current_database, COUNT(*) 
-FROM (
-    SELECT current_database(), t2.schemaname, t2.relname, t2.indexrelname, t2.idx_scan, t2.idx_tup_read, t2.idx_tup_fetch, pg_size_pretty(pg_relation_size(indexrelid))
-    FROM pg_stat_all_tables t1, pg_stat_all_indexes t2 
-    WHERE t1.relid = t2.relid 
-    AND t2.idx_scan < 10 
-    AND t2.schemaname NOT IN ('pg_toast', 'pg_catalog') 
-    AND indexrelid NOT IN (SELECT conindid FROM pg_constraint WHERE contype IN ('p', 'u', 'f')) 
-    AND pg_relation_size(indexrelid) > 65536 
-    ORDER BY pg_relation_size(indexrelid) DESC
-) aa 
-GROUP BY current_database 
-ORDER BY COUNT(*)
+SELECT current_database(), t2.schemaname, t2.relname, t2.indexrelname
+FROM pg_stat_all_tables t1, pg_stat_all_indexes t2 
+WHERE t1.relid = t2.relid 
+AND t2.idx_scan < 10 
+AND t2.schemaname NOT IN ('pg_toast', 'pg_catalog') 
+AND indexrelid NOT IN (SELECT conindid FROM pg_constraint WHERE contype IN ('p', 'u', 'f')) 
+AND pg_relation_size(indexrelid) > 65536 
+ORDER BY pg_relation_size(indexrelid) DESC
 
 -- 获取数据库统计信息
 [QUERY_DATABASE_STATS]

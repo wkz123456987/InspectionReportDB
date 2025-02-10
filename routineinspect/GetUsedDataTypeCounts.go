@@ -2,15 +2,13 @@ package routineinspect
 
 import (
 	"GoBasic/utils/fileutils"
-	"bytes"
-
-	"github.com/olekukonko/tablewriter"
+	"fmt"
 )
 
 // GetUsedDataTypeCounts 函数用于获取用户使用的数据类型统计信息，并以表格形式展示，同时输出相关建议。
 func GetUsedDataTypeCounts(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	logWriter.WriteLog("开始获取用户使用的数据类型统计信息...")
-	resultWriter.WriteResult("\n###  用户使用了多少种数据类型:\n")
+	resultWriter.WriteResult("\n### 3.5、用户使用了多少种数据类型:\n")
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
 		logWriter.WriteLog("未查询到有效数据库名称")
@@ -35,26 +33,25 @@ func GetUsedDataTypeCounts(logWriter *fileutils.LogWriter, resultWriter *fileuti
 
 	// 根据是否有数据决定输出内容
 	if len(allResult) > 0 {
-		buffer := &bytes.Buffer{}
-		writer := tablewriter.NewWriter(buffer)
-		writer.SetAutoFormatHeaders(true)
-		writer.SetHeader([]string{"当前数据库", "数据类型名称", "数量"})
+		// Markdown 表格的表头
+		tableHeader := "| 当前数据库 | 数据类型名称 | 数量 |"
+		resultWriter.WriteResult(tableHeader)
+
+		// Markdown 表格的分隔行
+		separator := "|------------|--------------|------|"
+		resultWriter.WriteResult(separator)
 
 		for _, row := range allResult {
-			writer.Append(row)
+			// 假设row是一个包含所需字段的切片
+			resultWriter.WriteResult(fmt.Sprintf("| %s | %s | %s |",
+				row[0], row[1], row[2]))
 		}
-
-		writer.Render()
-		resultWriter.WriteResult(buffer.String())
 	} else {
 		logWriter.WriteLog("未查询到用户使用的数据类型相关信息")
 		resultWriter.WriteResult("未查询到用户使用的数据类型相关信息")
 	}
 
 	// 打印建议
-	suggestion := `
-    建议:
-        > 关注常用的数据类型，对于使用频率极低的数据类型可考虑是否合理，必要时进行优化调整。
-	`
-	resultWriter.WriteResult(suggestion)
+	suggestion := "> 关注常用的数据类型，对于使用频率极低的数据类型可考虑是否合理，必要时进行优化调整。"
+	resultWriter.WriteResult("\n**建议:**\n " + suggestion)
 }

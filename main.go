@@ -31,8 +31,10 @@ func main() {
 	ResultDir := section.Key("ResultDir").String()
 	// 获取当前时间，并格式化为2024-12-10_143023的格式
 	currentTime := time.Now().Format("2006-01-02_150405")
+	section2 := cfg.Section("Linux")
+	hostname := section2.Key("Host")
 	// 初始化全局变量resultWriter
-	logFileName := fmt.Sprintf("%s-%s.log", "inspection", currentTime) // 创建完整的日志文件名，包含时间戳
+	logFileName := fmt.Sprintf("%s-%s.log", hostname, currentTime) // 创建完整的日志文件名，包含时间戳
 	// 使用文件名创建日志写入器
 	logWriter, err = fileutils.NewLogWriter(LogDir, logFileName)
 	if err != nil {
@@ -42,7 +44,7 @@ func main() {
 	}
 	defer logWriter.Close()
 	// 初始化全局变量resultWriter
-	resultFileName := fmt.Sprintf("%s-%s.txt", "inspect_result", currentTime)
+	resultFileName := fmt.Sprintf("%s-%s.md", hostname, currentTime)
 	resultWriter, err = fileutils.NewResultWriter(ResultDir, resultFileName)
 	if err != nil {
 		fmt.Printf("无法创建结果文件: %v\n", err)
@@ -70,7 +72,7 @@ func main() {
 
 // 操作系统巡检
 func os_detection() {
-	resultWriter.WriteResult("\n=====================================操作系统巡检======================================\n")
+	resultWriter.WriteResult("\n## 一、操作系统巡检\n")
 	detection.CPUUsageCheck(logWriter, resultWriter)
 	detection.MemoryUsageCheck(logWriter, resultWriter)
 	detection.DiskIOCheck(logWriter, resultWriter)
@@ -80,7 +82,7 @@ func os_detection() {
 
 // 数据库巡检
 func database_inspection() {
-	resultWriter.WriteResult("\n=====================================数据库巡检重点关注的巡检项======================================\n")
+	resultWriter.WriteResult("\n## 二、数据库巡检重点关注的巡检项\n")
 	fmt.Println("###  TOP 10 size对象:")
 	inspection.DatabasesTop10(logWriter, resultWriter)
 	fmt.Println("###  查找索引数超过4并且SIZE大于10MB的表")
@@ -111,7 +113,7 @@ func database_inspection() {
 
 // 数据库常规巡检
 func database_routine_inspection() {
-	resultWriter.WriteResult("\n=====================================数据库巡检常规巡检项======================================\n")
+	resultWriter.WriteResult("\n## 三、数据库巡检常规巡检项\n")
 	fmt.Println("###  当前活跃度:")
 	routineinspect.GetCurrentActivityStatus(logWriter, resultWriter)
 	fmt.Println("###  总剩余连接数:")

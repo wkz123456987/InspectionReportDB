@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 func DiskIOCheck(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
@@ -23,7 +21,7 @@ func RemoteDiskIOCheck(sshConf SSHConfig, logWriter *fileutils.LogWriter, result
 	}
 	diskDevices := parseDiskDevices(firstResult)
 	if len(diskDevices) > 0 {
-		header := "### 远程输出磁盘IO情况:\n"
+		header := "### 1.3、磁盘IO情况:\n"
 		resultWriter.WriteResult(header)
 		for _, disk := range diskDevices {
 			ioResult, err := ExecuteRemoteCommand(sshConf, fmt.Sprintf("iostat -mx 1 2 %s", disk))
@@ -31,13 +29,16 @@ func RemoteDiskIOCheck(sshConf SSHConfig, logWriter *fileutils.LogWriter, result
 				logWriter.WriteLog(fmt.Sprintf("Failed to execute command for disk %s: %s", disk, err))
 				continue
 			}
+			// Markdown 表格的表头和分隔行
+			resultWriter.WriteResult("| 设备名 | 磁盘IO：%util |")
+			resultWriter.WriteResult("|---------|------------|")
 			parseAndAppendIOResult(ioResult, disk, resultWriter)
 		}
 	} else {
 		resultWriter.WriteResult("未查询到远程磁盘IO情况相关信息")
 	}
 
-	resultWriter.WriteResult("建议: ")
+	resultWriter.WriteResult("**建议:** ")
 	resultWriter.WriteResult("   > 注意检查IO占用高的原因.")
 }
 
@@ -55,12 +56,7 @@ func parseDiskDevices(result string) []string {
 
 func parseAndAppendIOResult(result string, disk string, resultWriter *fileutils.ResultWriter) {
 	ioLines := strings.Split(strings.TrimSpace(result), "\n")
-	buffer := &bytes.Buffer{}
-	writer := tablewriter.NewWriter(buffer)
-	writer.SetAutoFormatHeaders(false)
-	writer.SetHeader([]string{"设备名", "磁盘IO：%util"})
-	writer.SetAlignment(tablewriter.ALIGN_LEFT)
-
+	var buffer bytes.Buffer
 	for index, ioLine := range ioLines {
 		fields := strings.Fields(ioLine)
 		if len(fields) >= 14 {
@@ -68,11 +64,10 @@ func parseAndAppendIOResult(result string, disk string, resultWriter *fileutils.
 			if index > 0 { // 跳过表头行，只处理数据行
 				ioUtil = strings.TrimSpace(strings.TrimPrefix(ioUtil, "%util"))
 				if ioUtil != "" {
-					writer.Append([]string{disk, ioUtil}) // 将设备名和处理后的%util值添加到表格中
+					fmt.Fprintf(&buffer, "| %s | %s |\n", disk, ioUtil) // 将设备名和处理后的%util值添加到表格中
 				}
 			}
 		}
 	}
-	writer.Render()
 	resultWriter.WriteResult(buffer.String())
 }

@@ -2,10 +2,8 @@ package detection
 
 import (
 	"GoBasic/utils/fileutils"
-	"bytes"
+	"fmt"
 	"strings"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 // FileSystemInodeUsageCheck 读取配置文件并执行远程文件系统Inode使用情况检查
@@ -31,14 +29,14 @@ func processFileSystemInodeResult(result string, resultWriter *fileutils.ResultW
 	hasData := false
 
 	// 写入标题
-	header := "### 远程文件系统Inode使用情况:\n"
+	header := "### 1.5、远程文件系统Inode使用情况:\n"
 	resultWriter.WriteResult(header)
 
-	buffer := &bytes.Buffer{}
-	writer := tablewriter.NewWriter(buffer)
-	writer.SetAutoFormatHeaders(false)
-	writer.SetHeader([]string{"文件系统", "inode容量", "已使用", "剩余", "使用占比", "挂载路径"})
-	writer.SetAlignment(tablewriter.ALIGN_LEFT)
+	// Markdown 表格的表头和分隔行
+	tableHeader := "| 文件系统     | inode容量 | 已使用 | 剩余 | 使用占比 | 挂载路径   |"
+	separator := "|------------|----------|------|------|---------|----------|"
+	resultWriter.WriteResult(tableHeader)
+	resultWriter.WriteResult(separator)
 
 	for index, line := range lines {
 		if index == 0 {
@@ -47,14 +45,9 @@ func processFileSystemInodeResult(result string, resultWriter *fileutils.ResultW
 		fields := strings.Fields(line)
 		if len(fields) >= 6 {
 			hasData = true
-			writer.Append([]string{
-				fields[0],
-				fields[1],
-				fields[2],
-				fields[3],
-				fields[4],
-				fields[5],
-			})
+			// 将数据行添加到Markdown表格中
+			resultWriter.WriteResult(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |",
+				fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]))
 		}
 	}
 
@@ -63,10 +56,9 @@ func processFileSystemInodeResult(result string, resultWriter *fileutils.ResultW
 		return
 	}
 
-	writer.Render()
-	resultWriter.WriteResult(buffer.String())
 	// 写入说明和建议
-	resultWriter.WriteResult("说明：在一个文件系统中，每个文件和目录都需要占用一个inode。当inode耗尽时，即使磁盘空间还有剩余，也无法创建新的文件")
-	resultWriter.WriteResult("建议: ")
-	resultWriter.WriteResult("   > 时刻关注inode使用情况，及时清理无用文件和目录，释放inode空间。")
+	explanation := "\n**说明：** 在一个文件系统中，每个文件和目录都需要占用一个inode。当inode耗尽时，即使磁盘空间还有剩余，也无法创建新的文件"
+	suggestion := "**建议:** \n > 时刻关注inode使用情况，及时清理无用文件和目录，释放inode空间。"
+	resultWriter.WriteResult(explanation)
+	resultWriter.WriteResult(suggestion)
 }

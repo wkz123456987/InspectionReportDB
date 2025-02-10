@@ -2,15 +2,13 @@ package routineinspect
 
 import (
 	"GoBasic/utils/fileutils"
-	"bytes"
-
-	"github.com/olekukonko/tablewriter"
+	"fmt"
 )
 
 // GetCreatedObjectCounts 用于获取用户创建的对象及数量信息
 func GetCreatedObjectCounts(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
 	logWriter.WriteLog("开始获取用户创建的对象及数量信息...")
-	resultWriter.WriteResult("\n###  用户创建了多少对象:\n")
+	resultWriter.WriteResult("\n### 3.6、用户创建了多少对象:\n")
 	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
 	if len(dbNamesResult) == 0 {
 		logWriter.WriteLog("未查询到有效数据库名称")
@@ -35,26 +33,25 @@ func GetCreatedObjectCounts(logWriter *fileutils.LogWriter, resultWriter *fileut
 
 	// 根据是否有数据决定输出内容
 	if len(allResult) > 0 {
-		buffer := &bytes.Buffer{}
-		writer := tablewriter.NewWriter(buffer)
-		writer.SetAutoFormatHeaders(true)
-		writer.SetHeader([]string{"当前数据库", "角色名称", "命名空间名称", "对象类型", "数量"})
+		// Markdown 表格的表头
+		tableHeader := "| 当前数据库 | 角色名称 | 命名空间名称 | 对象类型 | 数量 |"
+		resultWriter.WriteResult(tableHeader)
+
+		// Markdown 表格的分隔行
+		separator := "|------------|----------|--------------|----------|------|"
+		resultWriter.WriteResult(separator)
 
 		for _, row := range allResult {
-			writer.Append(row)
+			// 假设row是一个包含所需字段的切片
+			resultWriter.WriteResult(fmt.Sprintf("| %s | %s | %s | %s | %s |",
+				row[0], row[1], row[2], row[3], row[4]))
 		}
-
-		writer.Render()
-		resultWriter.WriteResult(buffer.String())
 	} else {
 		logWriter.WriteLog("未查询到用户创建的对象相关信息")
 		resultWriter.WriteResult("未查询到用户创建的对象相关信息")
 	}
 
 	// 打印建议
-	suggestion := `
-    建议:
-        > 定期查看用户创建对象的情况，对于过多或长期未使用的对象可考虑清理，以优化数据库空间和性能。
-	`
-	resultWriter.WriteResult(suggestion)
+	suggestion := "> 定期查看用户创建对象的情况，对于过多或长期未使用的对象可考虑清理，以优化数据库空间和性能。"
+	resultWriter.WriteResult("\n**建议:**\n " + suggestion)
 }
