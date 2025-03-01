@@ -1,10 +1,12 @@
 package main
 
 import (
+	"GoBasic/config"
 	"GoBasic/detection"
 	"GoBasic/inspection"
 	"GoBasic/routineinspect"
 	"GoBasic/utils/fileutils"
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -18,10 +20,18 @@ var (
 	logWriter    *fileutils.LogWriter
 )
 
+// 定义全局变量
+var globalConfigPath string
+
 func main() {
 
+	// 定义命令行参数，用于指定配置文件路径
+	configPath := flag.String("config", "./config/database_config.ini", "Path to the configuration file")
+	flag.Parse()
+
+	config.ConfigPath = *configPath
 	// 读取配置文件获取数据库配置信息
-	cfg, err := ini.Load("../config/database_config.ini")
+	cfg, err := ini.Load(config.ConfigPath)
 	if err != nil || cfg == nil {
 		log.Fatalf("无法加载配置文件: %v", err)
 		logWriter.WriteLog("无法加载配置文件: " + err.Error())
@@ -54,17 +64,20 @@ func main() {
 	defer resultWriter.Close()
 
 	// 定义一个简单的ASCII艺术字体
-	art := `
-		_   _      _ _         __        __        _   _
-	   | \ | |    | | |  __  / _|  ___  \ \      / / | |
-	   |  \| | ___| | | / _|| |_ / _ \   \ \ /\ / /| |_| |
-	   | . \ |/ _ \ | | |  _||  _|  __/    \ V  V / |  _  |
-	   |_| \_/\___/_|_| |_|  |_|  \___|      \_/\_/  |_| |_|
-		`
+	// ASCII 艺术风格的 logo
+	const logo = `
+███████╗██╗   ██╗██████╗  ██████╗ ███╗   ███╗███████╗
+██╔════╝╚██╗ ██╔╝██╔══██╗██╔═══██╗████╗ ████║██╔════╝
+█████╗   ╚████╔╝ ██████╔╝██║   ██║██╔████╔██║█████╗  
+██╔══╝    ╚██╔╝  ██╔═══╝ ██║   ██║██║╚██╔╝██║██╔══╝  
+███████╗   ██║   ███████╗╚██████╔╝██║ ╚═╝ ██║███████╗
+╚══════╝   ╚═╝   ╚══════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝
+`
+
 	fmt.Println("开始巡检系统资源使用情况...")
-	fmt.Println(art)
+	fmt.Println(logo)
 	resultWriter.WriteResult("开始巡检系统资源使用情况...")
-	resultWriter.WriteResult(art)
+	//resultWriter.WriteResult(logo)
 	os_detection()                //调用操作系统巡检
 	database_inspection()         //调用数据库巡检
 	database_routine_inspection() //调用数据库常规巡检

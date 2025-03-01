@@ -44,7 +44,7 @@ func printSchemaStatsTable(db string, logWriter *fileutils.LogWriter, resultWrit
 	hasData := false
 
 	// 打印当前数据库的schema标题
-	resultWriter.WriteResult(fmt.Sprintf("** 【%s】库的schema: **\n", db))
+	resultWriter.WriteResult(fmt.Sprintf("\n**【%s】库的schema: **\n", db))
 
 	// Markdown 表格的表头和分隔行
 	tableHeader := fmt.Sprintf("| schemaName | Byte | MB | GB |")

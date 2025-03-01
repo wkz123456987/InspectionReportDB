@@ -1,7 +1,11 @@
 package inspection
 
 import (
+	"GoBasic/config"
+	"crypto/aes"
+	"crypto/cipher"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -33,7 +37,7 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 		log.Fatal("未找到匹配的SQL语句")
 	}
 	// 读取配置文件获取数据库配置信息
-	cfg, err := ini.Load("../config/database_config.ini")
+	cfg, err := ini.Load(config.ConfigPath)
 	if err != nil {
 		log.Fatalf("无法读取配置文件: %v", err)
 	}
@@ -46,7 +50,7 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 	cfg_password, err := ini.LoadSources(ini.LoadOptions{
 		AllowBooleanKeys:    true,
 		IgnoreInlineComment: true, // 禁止#注释
-	}, "../config/database_config.ini")
+	}, config.ConfigPath)
 
 	if cfg_password == nil || err != nil {
 		log.Fatalf("无法读取配置文件: " + err.Error())
@@ -54,7 +58,23 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 	// 获取配置文件中 "Linux" 节
 	section_password := cfg_password.Section("Database")
 	// 使用StringWithShadows来获取包括注释在内的整行内容
-	password := section_password.Key("Password").String()
+	//password := section_password.Key("Password").String()
+
+	Encryption_method := section.Key("Encryption_method").String()
+	// 使用StringWithShadows来获取包括注释在内的整行内容
+	password_source := section_password.Key("Password").String()
+	var password *string
+	if Encryption_method == "plaintext" {
+		password = &password_source
+
+	} else {
+		// 解密密码
+		decryptedPassword, err := decrypt(password_source)
+		if err != nil {
+			fmt.Println("解密密码时出错: " + err.Error())
+		}
+		password = &decryptedPassword
+	}
 
 	// 构建连接字符串并连接数据库，同时检查连接有效性
 	var actualDBName string
@@ -66,7 +86,7 @@ func ConnectPostgreSQL(queryIdentifier string, dbname ...string) [][]string {
 
 	// 构建连接字符串并连接数据库，同时检查连接有效性
 	connStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=disable",
-		username, password, actualDBName, hostname, port)
+		username, *password, actualDBName, hostname, port)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
@@ -160,4 +180,40 @@ func extractTargetSQL(sqlContent string, queryIdentifier string) string {
 		return targetSQL
 	}
 	return ""
+}
+
+// 解密函数
+func decrypt(encryptedString string) (string, error) {
+
+	// 解密密钥，长度必须是 16、24 或 32 字节，分别对应 AES-128、AES-192 或 AES-256
+	const decryptionKey = "1234567890abcdef1234567890abcdef"
+	// 解码 Base64 字符串
+	decodedData, err := base64.StdEncoding.DecodeString(encryptedString)
+	if err != nil {
+		return "", fmt.Errorf("解码 Base64 时出错: %w", err)
+	}
+
+	// 提取 IV 和密文
+	blockSize := aes.BlockSize
+	iv := decodedData[:blockSize]
+	ciphertext := decodedData[blockSize:]
+
+	// 创建 AES 解密器
+	block, err := aes.NewCipher([]byte(decryptionKey))
+	if err != nil {
+		return "", fmt.Errorf("创建 AES 解密器时出错: %w", err)
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	mode.CryptBlocks(ciphertext, ciphertext)
+
+	// 去除 PKCS7 填充
+	plaintext := pkcs7UnPadding(ciphertext)
+	return string(plaintext), nil
+}
+
+// PKCS7 去填充
+func pkcs7UnPadding(data []byte) []byte {
+	padding := int(data[len(data)-1])
+	return data[:len(data)-padding]
 }
