@@ -116,12 +116,14 @@ ResultDir = ./node1/
 
 [Linux]
 User = "root" #用户名
+Encryption_method = "plaintext" #明文（plaintext）/密文（AES-256）
 Password = "linux123!@#"
 Host = 192.168.101.149    # 主机名
 Port = 22     # 端口
 
 [Database]
 DBName = postgres # 数据库名
+Encryption_method = "plaintext" #明文（plaintext）/密文（AES-256）
 Hostname = 192.168.101.149 # 主机名
 Port = 10432  # 端口
 Username = fbase  # 用户名
@@ -138,6 +140,7 @@ ResultDir = ./node2/
 
 [Linux]
 User = "root" #用户名
+Encryption_method = "plaintext" #明文（plaintext）/密文（AES-256）
 Password = "linux123!@#"
 Host = 192.168.101.150    # 主机名
 Port = 22     # 端口
@@ -145,6 +148,7 @@ Port = 22     # 端口
 [Database]
 DBName = postgres # 数据库名
 Hostname = 192.168.101.150 # 主机名
+Encryption_method = "plaintext" #明文（plaintext）/密文（AES-256）
 Port = 8432  # 端口
 Username = fbase  # 用户名
 # 密码
