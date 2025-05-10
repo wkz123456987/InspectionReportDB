@@ -1,105 +1,60 @@
 package inspection
 
 import (
-	"bytes"
+	"GoBasic/utils/fileutils"
 	"fmt"
-	"os/exec"
-	"regexp"
-	"strings"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 // TablesWithTooManyIndexes 查找索引数超过4并且SIZE大于10MB的表
-func TablesWithTooManyIndexes() {
-	// 执行psql命令获取数据库列表
-	cmd := exec.Command("psql", "--pset=pager=off", "-t", "-A", "-q", "-c", "SELECT datname FROM pg_database WHERE datname NOT IN ('template0', 'template1')")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command: %s\n", err)
+func TablesWithTooManyIndexes(logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	logWriter.WriteLog("开始查找索引数超过4并且SIZE大于10MB的表...")
+	// 获取非template数据库名称
+	dbNamesResult := ConnectPostgreSQL("[QUERY_NON_TEMPLATE_DBS]")
+	if len(dbNamesResult) == 0 {
+		logWriter.WriteLog("未查询到有效数据库名称")
 		return
 	}
-
-	// 解析数据库列表并遍历
-	dbList := strings.Split(strings.TrimSpace(out.String()), "\n")
+	dbList := make([]string, len(dbNamesResult))
+	for i, row := range dbNamesResult {
+		dbList[i] = row[0]
+	}
+	// 写入标题
+	header := "\n###  2.2、查找索引数超过4并且SIZE大于10MB的表\n"
+	resultWriter.WriteResult(header)
 	for _, db := range dbList {
 		if db == "" {
 			continue
 		}
-		printTablesWithTooManyIndexes(db)
+		printTablesWithTooManyIndexes(db, logWriter, resultWriter)
 	}
-
-	fmt.Println("\n建议:")
-	fmt.Println("   > 索引数量太多, 影响表的增删改性能, 建议检查是否有不需要的索引.")
-	fmt.Println()
+	resultWriter.WriteResult("\n**建议:**\n")
+	resultWriter.WriteResult("> 索引数量太多, 影响表的增删改性能, 建议检查是否有不需要的索引.\n")
 }
 
-// printTablesWithTooManyIndexes 打印指定数据库中索引数超过4并且SIZE大于10MB的表
-func printTablesWithTooManyIndexes(db string) {
-	buffer := &bytes.Buffer{}
-	writer := tablewriter.NewWriter(buffer)
-	writer.SetAutoFormatHeaders(true)
-	writer.SetHeader([]string{"数据库", "模式", "表名", "表大小", "索引数量"})
-
-	hasData := false // 标记是否有有效数据行
-
-	// 构建psql命令以获取表大小和索引数量信息
-	cmd := exec.Command("psql", "-d", db, "--pset=pager=off", "-t", "--pset=border=2", "-q", "-c", `
-SELECT current_database(), t2.nspname, t1.relname, pg_size_pretty(pg_relation_size(t1.oid)), t3.idx_cnt 
-FROM pg_class t1, pg_namespace t2, 
-     (SELECT indrelid, COUNT(*) idx_cnt 
-      FROM pg_index 
-      GROUP BY 1 
-      HAVING COUNT(*) > 4) t3 
-WHERE pg_relation_size(t1.oid) >= 10000000 
-  AND t1.oid = t3.indrelid 
-  AND t1.relnamespace = t2.oid 
-  AND pg_relation_size(t1.oid) / 1024 / 1024.0 > 10 
-ORDER BY t3.idx_cnt DESC;`)
-	var result bytes.Buffer
-	cmd.Stdout = &result
-	cmd.Stderr = &bytes.Buffer{} // 用于捕获错误信息
-
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command for database %s: %s\n", db, err)
+// printTablesWithTooManyIndexes 打印指定数据库中索引数超过4且SIZE大于10MB的表
+func printTablesWithTooManyIndexes(db string, logWriter *fileutils.LogWriter, resultWriter *fileutils.ResultWriter) {
+	// 获取指定数据库中索引数超过4且SIZE大于10MB的表信息
+	tablesInfoResult := ConnectPostgreSQL("[QUERY_TABLES_WITH_TOO_MANY_INDEXES]", db)
+	if len(tablesInfoResult) == 0 {
+		logWriter.WriteLog(fmt.Sprintf("在数据库 %s 中未查询到索引数超过4且SIZE大于10MB的表信息", db))
+		resultWriter.WriteResult(fmt.Sprintf("\n在数据库 %s 中未查询到索引数超过4且SIZE大于10MB的表信息\n", db))
 		return
 	}
 
-	// 使用正则表达式提取每行的数据
-	lines := strings.Split(strings.TrimSpace(result.String()), "\n")
-	for _, line := range lines {
-		// 正则表达式用于匹配每一列
-		re := regexp.MustCompile(`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|`)
-		matches := re.FindStringSubmatch(line)
+	// 写入标题
+	header := fmt.Sprintf("\n**数据库 %s 中索引数超过4且SIZE大于10MB的表:**\n", db)
+	resultWriter.WriteResult(header)
 
-		if len(matches) == 6 { // 第一个匹配项是完整的匹配项，后面是列的数据
-			database := strings.TrimSpace(matches[1])
-			schema := strings.TrimSpace(matches[2])
-			tableName := strings.TrimSpace(matches[3])
-			tableSize := strings.TrimSpace(matches[4])
-			indexCount := strings.TrimSpace(matches[5])
+	// Markdown 表格的表头和分隔行
+	tableHeader := "| 数据库 | 模式 | 表名 | 表大小 | 索引数量 |"
+	separator := "|--------|------|------|--------|----------|"
+	resultWriter.WriteResult(tableHeader)
+	resultWriter.WriteResult(separator)
 
-			if database != "" || schema != "" || tableName != "" || tableSize != "" || indexCount != "" {
-				writer.Append([]string{
-					database,
-					schema,
-					tableName,
-					tableSize,
-					indexCount,
-				})
-				hasData = true
-			}
-		}
-	}
-
-	if hasData {
-		// 渲染并输出格式化的表格
-		writer.Render()
-		fmt.Println(buffer.String())
-	} else {
-		fmt.Printf("在数据库 %s 中未查询到索引数超过4且SIZE大于10MB的表信息\n", db)
+	// 遍历结果并添加数据到Markdown表格中
+	for _, row := range tablesInfoResult {
+		// 假设row是一个包含所需字段的切片
+		resultWriter.WriteResult(fmt.Sprintf("| %s | %s | %s | %s | %s |",
+			row[0], row[1], row[2], row[3], row[4]))
 	}
 }
